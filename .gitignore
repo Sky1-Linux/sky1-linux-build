@@ -1,0 +1,15 @@
+# Build artifacts
+build/
+*.deb
+*.buildinfo
+*.changes
+
+# Downloaded tarballs
+*.tar.xz
+*.tar.gz
+
+# Editor/IDE
+*.swp
+*~
+.vscode/
+.idea/
