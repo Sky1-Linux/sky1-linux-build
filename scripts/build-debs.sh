@@ -33,10 +33,10 @@ fi
 echo "Using config: $CONFIG_FILE"
 cp "$CONFIG_FILE" .config
 
-# Create localversion file
-echo "-${VARIANT}" > localversion
+# Remove any localversion files (we use LOCALVERSION env var instead)
+rm -f localversion*
 
-# Ensure consistent version string
+# Ensure consistent version string (no config-based suffix)
 ./scripts/config --set-str LOCALVERSION ""
 ./scripts/config --disable LOCALVERSION_AUTO
 
