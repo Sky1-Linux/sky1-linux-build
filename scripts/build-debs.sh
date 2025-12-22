@@ -44,8 +44,10 @@ rm -f localversion*
 make ARCH=arm64 olddefconfig
 
 # Set environment for package naming
+# Package name includes kernel version (e.g., linux-image-6.18.2-sky1)
+# Version is just the revision number to avoid redundancy in filenames
 export LOCALVERSION="-${VARIANT}"
-export KDEB_PKGVERSION="${VERSION}-${VARIANT}.${REVISION}"
+export KDEB_PKGVERSION="${REVISION}"
 export KDEB_SOURCENAME="linux-${VARIANT}"
 export DEBEMAIL="entrpi@proton.me"
 export DEBFULLNAME="Entrpi"
@@ -61,6 +63,89 @@ make ARCH=arm64 -j"$(nproc)" bindeb-pkg
 
 # Move packages to work dir root for easier access
 mv ../*.deb "$SCRIPT_DIR/$WORK_DIR/" 2>/dev/null || true
+
+# Fix headers package: remove /lib/modules dir and add postinst for build symlink
+# This prevents conflicts with linux-image which owns /lib/modules/<version>/
+fix_headers_package() {
+    local headers_deb="$1"
+    local kernel_ver="$2"
+
+    [ -f "$headers_deb" ] || return 0
+
+    echo ""
+    echo "=== Fixing headers package ==="
+
+    local tmpdir=$(mktemp -d)
+    local pkg_name=$(dpkg-deb -f "$headers_deb" Package)
+    local pkg_version=$(dpkg-deb -f "$headers_deb" Version)
+
+    # Extract package
+    dpkg-deb -R "$headers_deb" "$tmpdir"
+
+    # Remove /lib/modules directory (image package owns this)
+    if [ -d "$tmpdir/lib/modules" ]; then
+        echo "  Removing /lib/modules from headers package"
+        rm -rf "$tmpdir/lib/modules"
+        rm -rf "$tmpdir/lib" 2>/dev/null || true
+    fi
+
+    # Add dependency on the image package and postinst script
+    local image_pkg="linux-image-${kernel_ver}"
+
+    # Update control file with dependency
+    if ! grep -q "^Depends:" "$tmpdir/DEBIAN/control"; then
+        echo "Depends: ${image_pkg} (= ${pkg_version})" >> "$tmpdir/DEBIAN/control"
+    fi
+
+    # Create postinst to make build symlink
+    cat > "$tmpdir/DEBIAN/postinst" << 'POSTINST'
+#!/bin/sh
+set -e
+
+KERNEL_VERSION="__KERNEL_VERSION__"
+HEADERS_DIR="/usr/src/linux-headers-${KERNEL_VERSION}"
+MODULES_DIR="/lib/modules/${KERNEL_VERSION}"
+
+if [ "$1" = "configure" ]; then
+    # Create build symlink in modules directory
+    if [ -d "$MODULES_DIR" ] && [ -d "$HEADERS_DIR" ]; then
+        ln -sf "$HEADERS_DIR" "$MODULES_DIR/build"
+    fi
+fi
+
+exit 0
+POSTINST
+    sed -i "s/__KERNEL_VERSION__/${kernel_ver}/" "$tmpdir/DEBIAN/postinst"
+    chmod 755 "$tmpdir/DEBIAN/postinst"
+
+    # Create prerm to remove build symlink
+    cat > "$tmpdir/DEBIAN/prerm" << 'PRERM'
+#!/bin/sh
+set -e
+
+KERNEL_VERSION="__KERNEL_VERSION__"
+MODULES_DIR="/lib/modules/${KERNEL_VERSION}"
+
+if [ "$1" = "remove" ] || [ "$1" = "upgrade" ]; then
+    rm -f "$MODULES_DIR/build" 2>/dev/null || true
+fi
+
+exit 0
+PRERM
+    sed -i "s/__KERNEL_VERSION__/${kernel_ver}/" "$tmpdir/DEBIAN/prerm"
+    chmod 755 "$tmpdir/DEBIAN/prerm"
+
+    # Rebuild package
+    dpkg-deb -b "$tmpdir" "$headers_deb"
+
+    rm -rf "$tmpdir"
+    echo "  Headers package fixed: $headers_deb"
+}
+
+# Determine kernel version string for the headers package
+KERNEL_VER="${VERSION}-${VARIANT}"
+HEADERS_PKG="$SCRIPT_DIR/$WORK_DIR/linux-headers-${KERNEL_VER}_${KDEB_PKGVERSION}_arm64.deb"
+fix_headers_package "$HEADERS_PKG" "$KERNEL_VER"
 mv ../*.buildinfo "$SCRIPT_DIR/$WORK_DIR/" 2>/dev/null || true
 mv ../*.changes "$SCRIPT_DIR/$WORK_DIR/" 2>/dev/null || true
 
