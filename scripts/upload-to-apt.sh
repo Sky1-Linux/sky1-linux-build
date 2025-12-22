@@ -18,8 +18,8 @@ fi
 
 cd "$APT_REPO"
 
-# Find kernel packages to upload
-DEBS=$(ls "$SCRIPT_DIR/$WORK_DIR"/linux-*.deb 2>/dev/null)
+# Find kernel packages to upload (exclude linux-libc-dev - use Debian's)
+DEBS=$(ls "$SCRIPT_DIR/$WORK_DIR"/linux-*.deb 2>/dev/null | grep -v linux-libc-dev)
 if [ -z "$DEBS" ]; then
     echo "Error: No linux-*.deb files found in $SCRIPT_DIR/$WORK_DIR/"
     exit 1
