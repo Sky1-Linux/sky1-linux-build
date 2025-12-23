@@ -41,9 +41,14 @@ for patch in "$LINUX_SKY1"/patches/*.patch; do
     if [ -f "$patch" ]; then
         echo "  $(basename "$patch")"
         patch -p1 -s < "$patch"
-        ((PATCH_COUNT++))
+        PATCH_COUNT=$((PATCH_COUNT + 1))
     fi
 done
+
+# Save hash of patches for staleness detection
+PATCHES_HASH=$(cat "$LINUX_SKY1"/patches/*.patch 2>/dev/null | sha256sum | cut -d' ' -f1)
+echo "$PATCHES_HASH" > .patches-hash
+echo "Patches hash: ${PATCHES_HASH:0:16}..."
 
 echo ""
 echo "=== Source prepared: $WORK_DIR/linux-${VERSION} ==="
