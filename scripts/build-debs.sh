@@ -167,10 +167,52 @@ PRERM
     echo "  Headers package fixed: $headers_deb"
 }
 
-# Determine kernel version string for the headers package
+# Add Provides field to image package for stable package name
+# e.g., linux-image-6.18.2-sky1 provides linux-image-6.18-sky1
+fix_image_package() {
+    local image_deb="$1"
+    local stable_name="$2"
+
+    [ -f "$image_deb" ] || return 0
+
+    echo ""
+    echo "=== Adding Provides to image package ==="
+
+    local tmpdir=$(mktemp -d)
+
+    # Extract package
+    dpkg-deb -R "$image_deb" "$tmpdir"
+
+    # Add Provides field if not present
+    if ! grep -q "^Provides:" "$tmpdir/DEBIAN/control"; then
+        # Insert Provides after Architecture line
+        sed -i "/^Architecture:/a Provides: ${stable_name}" "$tmpdir/DEBIAN/control"
+        echo "  Added Provides: ${stable_name}"
+    fi
+
+    # Rebuild package
+    dpkg-deb -b "$tmpdir" "$image_deb"
+
+    rm -rf "$tmpdir"
+    echo "  Image package fixed: $image_deb"
+}
+
+# Determine kernel version string
 KERNEL_VER="${VERSION}-${VARIANT}"
+
+# Extract major.minor for stable package name (6.18.2 -> 6.18)
+MAJOR_MINOR=$(echo "$VERSION" | cut -d. -f1,2)
+
+# Fix image package - add Provides for stable name
+IMAGE_PKG="$SCRIPT_DIR/$WORK_DIR/linux-image-${KERNEL_VER}_${KDEB_PKGVERSION}_arm64.deb"
+fix_image_package "$IMAGE_PKG" "linux-image-${MAJOR_MINOR}-${VARIANT}"
+
+# Fix headers package
 HEADERS_PKG="$SCRIPT_DIR/$WORK_DIR/linux-headers-${KERNEL_VER}_${KDEB_PKGVERSION}_arm64.deb"
 fix_headers_package "$HEADERS_PKG" "$KERNEL_VER"
+
+# Also add Provides to headers package
+fix_image_package "$HEADERS_PKG" "linux-headers-${MAJOR_MINOR}-${VARIANT}"
 mv ../*.buildinfo "$SCRIPT_DIR/$WORK_DIR/" 2>/dev/null || true
 mv ../*.changes "$SCRIPT_DIR/$WORK_DIR/" 2>/dev/null || true
 
@@ -184,6 +226,6 @@ echo "=== Package Info ==="
 for deb in "$SCRIPT_DIR/$WORK_DIR"/*.deb; do
     if [ -f "$deb" ]; then
         echo "$(basename "$deb"):"
-        dpkg-deb -I "$deb" | grep -E "Package:|Version:|Installed-Size:" | sed 's/^/  /'
+        dpkg-deb -I "$deb" | grep -E "Package:|Version:|Provides:|Installed-Size:" | sed 's/^/  /'
     fi
 done
