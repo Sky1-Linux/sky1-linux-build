@@ -1,0 +1,33 @@
+Source: linux-sky1-meta
+Section: kernel
+Priority: optional
+Maintainer: Entrpi <entrpi@proton.me>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.0
+
+Package: linux-image-sky1
+Architecture: arm64
+Depends: linux-image-__VERSION__-sky1 (= __REVISION__)
+Description: Sky1 Linux kernel (latest stable)
+ Meta package that depends on the latest Sky1 Linux kernel image.
+ .
+ This package always depends on the newest stable kernel release,
+ making it easy to stay up-to-date via apt upgrade.
+
+Package: linux-headers-sky1
+Architecture: arm64
+Depends: linux-headers-__VERSION__-sky1 (= __REVISION__)
+Description: Sky1 Linux kernel headers (latest stable)
+ Meta package that depends on the latest Sky1 Linux kernel headers.
+ .
+ This package always depends on the newest stable kernel headers,
+ matching the linux-image-sky1 meta package.
+
+Package: linux-sky1
+Architecture: arm64
+Depends: linux-image-sky1 (= __META_VERSION__), linux-headers-sky1 (= __META_VERSION__)
+Description: Sky1 Linux kernel (image + headers)
+ Meta package that installs both the Sky1 Linux kernel image and headers.
+ .
+ This is a convenience package for development systems that need
+ both the kernel and headers for building modules.
