@@ -4,19 +4,32 @@ set -e
 
 VERSION="${1:-6.18.2}"
 REVISION="${2:-1}"
-VARIANT="${3:-sky1}"           # sky1 or sky1-dev
+VARIANT="${3:-sky1}"           # sky1, sky1-rc, sky1-next, or sky1-dev
 WORK_DIR="${4:-build}"
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 # linux-sky1 repo location (sibling directory)
 LINUX_SKY1="${LINUX_SKY1:-$(dirname "$SCRIPT_DIR")/linux-sky1}"
 
+# Determine patch directory based on variant
+# sky1-rc uses patches-rc/, sky1-next uses patches-next/, others use patches/
+case "$VARIANT" in
+    sky1-rc)     PATCH_DIR="$LINUX_SKY1/patches-rc" ;;
+    sky1-latest) PATCH_DIR="$LINUX_SKY1/patches-latest" ;;
+    sky1-next)   PATCH_DIR="$LINUX_SKY1/patches-next" ;;
+    *)           PATCH_DIR="$LINUX_SKY1/patches" ;;
+esac
+
 echo "=== Building linux-${VERSION}-${VARIANT} revision ${REVISION} ==="
 
 # Check source is prepared
 if [ ! -d "$WORK_DIR/linux-${VERSION}" ]; then
     echo "Error: Source not found at $WORK_DIR/linux-${VERSION}"
-    echo "Run prepare-source.sh first"
+    if [[ "$VARIANT" == "sky1-rc" ]] || [[ "$VARIANT" == "sky1-latest" ]] || [[ "$VARIANT" == "sky1-next" ]]; then
+        echo "Run prepare-source-git.sh first (for RC/Next builds)"
+    else
+        echo "Run prepare-source.sh first"
+    fi
     exit 1
 fi
 
@@ -27,23 +40,36 @@ if [ ! -f .patches-hash ]; then
     echo "Error: No .patches-hash found - source was prepared without hash tracking"
     echo ""
     echo "Run these commands to rebuild with fresh source:"
-    echo "  rm -rf $WORK_DIR/linux-${VERSION}"
-    echo "  ./scripts/prepare-source.sh ${VERSION}"
-    echo "  ./scripts/build-debs.sh ${VERSION} ${REVISION}"
+    if [[ "$VARIANT" == "sky1-rc" ]] || [[ "$VARIANT" == "sky1-latest" ]] || [[ "$VARIANT" == "sky1-next" ]]; then
+        echo "  rm -rf $WORK_DIR/linux-${VERSION}"
+        echo "  ./scripts/prepare-source-git.sh <ref> ${VARIANT#sky1-}"
+        echo "  ./scripts/build-debs.sh ${VERSION} ${REVISION} ${VARIANT}"
+    else
+        echo "  rm -rf $WORK_DIR/linux-${VERSION}"
+        echo "  ./scripts/prepare-source.sh ${VERSION}"
+        echo "  ./scripts/build-debs.sh ${VERSION} ${REVISION}"
+    fi
     exit 1
 fi
 
 SAVED_HASH=$(cat .patches-hash)
-CURRENT_HASH=$(cat "$LINUX_SKY1"/patches/*.patch 2>/dev/null | sha256sum | cut -d' ' -f1)
+CURRENT_HASH=$(cat "$PATCH_DIR"/*.patch 2>/dev/null | sha256sum | cut -d' ' -f1)
 if [ "$SAVED_HASH" != "$CURRENT_HASH" ]; then
     echo "Error: Patches have changed since source was prepared!"
     echo "  Saved hash:   ${SAVED_HASH:0:16}..."
     echo "  Current hash: ${CURRENT_HASH:0:16}..."
+    echo "  Patch dir:    $PATCH_DIR"
     echo ""
     echo "Run these commands to rebuild with updated patches:"
-    echo "  rm -rf $WORK_DIR/linux-${VERSION}"
-    echo "  ./scripts/prepare-source.sh ${VERSION}"
-    echo "  ./scripts/build-debs.sh ${VERSION} ${REVISION}"
+    if [[ "$VARIANT" == "sky1-rc" ]] || [[ "$VARIANT" == "sky1-latest" ]] || [[ "$VARIANT" == "sky1-next" ]]; then
+        echo "  rm -rf $WORK_DIR/linux-${VERSION}"
+        echo "  ./scripts/prepare-source-git.sh <ref> ${VARIANT#sky1-}"
+        echo "  ./scripts/build-debs.sh ${VERSION} ${REVISION} ${VARIANT}"
+    else
+        echo "  rm -rf $WORK_DIR/linux-${VERSION}"
+        echo "  ./scripts/prepare-source.sh ${VERSION}"
+        echo "  ./scripts/build-debs.sh ${VERSION} ${REVISION}"
+    fi
     exit 1
 fi
 
@@ -197,11 +223,16 @@ fix_image_package() {
     echo "  Image package fixed: $image_deb"
 }
 
-# Determine kernel version string
-KERNEL_VER="${VERSION}-${VARIANT}"
+# Determine kernel version string from actual build output
+# The kernel uses VERSION.PATCHLEVEL.SUBLEVEL from its Makefile (e.g., 6.19.0-rc7),
+# which may differ from the user-supplied version (e.g., 6.19-rc7 omits .0 sublevel).
+KERN_RELEASE=$(make -s ARCH=arm64 kernelrelease LOCALVERSION="-${VARIANT}")
+KERNEL_VER="$KERN_RELEASE"
 
-# Extract major.minor for stable package name (6.18.2 -> 6.18)
-MAJOR_MINOR=$(echo "$VERSION" | cut -d. -f1,2)
+# Extract major.minor for stable package name
+# 6.18.2-sky1 -> 6.18, 6.19.0-rc7-sky1-rc -> 6.19
+KVER_BASE=$(make -s ARCH=arm64 kernelversion)
+MAJOR_MINOR=$(echo "$KVER_BASE" | sed 's/-rc.*//' | cut -d. -f1,2)
 
 # Fix image package - add Provides for stable name
 IMAGE_PKG="$SCRIPT_DIR/$WORK_DIR/linux-image-${KERNEL_VER}_${KDEB_PKGVERSION}_arm64.deb"
@@ -215,6 +246,13 @@ fix_headers_package "$HEADERS_PKG" "$KERNEL_VER"
 fix_image_package "$HEADERS_PKG" "linux-headers-${MAJOR_MINOR}-${VARIANT}"
 mv ../*.buildinfo "$SCRIPT_DIR/$WORK_DIR/" 2>/dev/null || true
 mv ../*.changes "$SCRIPT_DIR/$WORK_DIR/" 2>/dev/null || true
+
+# Build meta packages (linux-image-sky1, linux-headers-sky1, linux-sky1)
+# Only for stable variant (not rc/next/dev)
+if [ "$VARIANT" = "sky1" ]; then
+    echo ""
+    "$SCRIPT_DIR/scripts/build-meta.sh" "$VERSION" "$REVISION"
+fi
 
 # List results
 echo ""
