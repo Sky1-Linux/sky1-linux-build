@@ -19,8 +19,8 @@ else
     SUFFIX_DESC=" (${SUFFIX#-})"  # e.g. " (rc)", " (latest)"
 fi
 
-# Meta package version matches kernel version
-META_VERSION="${VERSION}"
+# Meta package version includes revision so apt sees upgrades between revisions
+META_VERSION="${VERSION}-${REVISION}"
 
 echo "=== Building linux-sky1${SUFFIX}-meta packages ==="
 echo "Kernel version: ${VERSION}-${VARIANT}"
