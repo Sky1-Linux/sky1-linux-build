@@ -249,8 +249,11 @@ mv ../*.changes "$SCRIPT_DIR/$WORK_DIR/" 2>/dev/null || true
 
 # Build meta packages (linux-image-sky1, linux-headers-sky1, linux-sky1)
 # For all variants: sky1 -> linux-image-sky1, sky1-rc -> linux-image-sky1-rc, etc.
+# Use KVER_BASE (from make kernelversion) instead of user-supplied VERSION to ensure
+# the meta package version and dependencies match the actual kernel package names.
+# e.g., user passes "6.19-rc7" but kernel uses "6.19.0-rc7" (with .0 sublevel).
 echo ""
-"$SCRIPT_DIR/scripts/build-meta.sh" "$VERSION" "$REVISION" "$VARIANT"
+"$SCRIPT_DIR/scripts/build-meta.sh" "$KVER_BASE" "$REVISION" "$VARIANT"
 
 # List results
 echo ""
