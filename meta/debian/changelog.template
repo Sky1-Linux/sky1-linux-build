@@ -1,5 +1,5 @@
-linux-sky1-meta (__META_VERSION__) unstable; urgency=medium
+linux-sky1__SUFFIX__-meta (__META_VERSION__) unstable; urgency=medium
 
-  * Update to linux __VERSION__-sky1
+  * Update to linux __VERSION__-sky1__SUFFIX__
 
  -- Entrpi <entrpi@proton.me>  __DATE__

@@ -1,32 +1,32 @@
-Source: linux-sky1-meta
+Source: linux-sky1__SUFFIX__-meta
 Section: kernel
 Priority: optional
 Maintainer: Entrpi <entrpi@proton.me>
 Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.6.0
 
-Package: linux-image-sky1
+Package: linux-image-sky1__SUFFIX__
 Architecture: arm64
-Depends: linux-image-__VERSION__-sky1 (= __REVISION__)
-Description: Sky1 Linux kernel (latest stable)
+Depends: linux-image-__VERSION__-sky1__SUFFIX__ (= __REVISION__)
+Description: Sky1 Linux kernel__SUFFIX_DESC__
  Meta package that depends on the latest Sky1 Linux kernel image.
  .
- This package always depends on the newest stable kernel release,
+ This package always depends on the newest kernel release for this track,
  making it easy to stay up-to-date via apt upgrade.
 
-Package: linux-headers-sky1
+Package: linux-headers-sky1__SUFFIX__
 Architecture: arm64
-Depends: linux-headers-__VERSION__-sky1 (= __REVISION__)
-Description: Sky1 Linux kernel headers (latest stable)
+Depends: linux-headers-__VERSION__-sky1__SUFFIX__ (= __REVISION__)
+Description: Sky1 Linux kernel headers__SUFFIX_DESC__
  Meta package that depends on the latest Sky1 Linux kernel headers.
  .
- This package always depends on the newest stable kernel headers,
- matching the linux-image-sky1 meta package.
+ This package always depends on the newest kernel headers for this track,
+ matching the linux-image-sky1__SUFFIX__ meta package.
 
-Package: linux-sky1
+Package: linux-sky1__SUFFIX__
 Architecture: arm64
-Depends: linux-image-sky1 (= __META_VERSION__), linux-headers-sky1 (= __META_VERSION__)
-Description: Sky1 Linux kernel (image + headers)
+Depends: linux-image-sky1__SUFFIX__ (= __META_VERSION__), linux-headers-sky1__SUFFIX__ (= __META_VERSION__)
+Description: Sky1 Linux kernel (image + headers)__SUFFIX_DESC__
  Meta package that installs both the Sky1 Linux kernel image and headers.
  .
  This is a convenience package for development systems that need

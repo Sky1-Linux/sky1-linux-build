@@ -248,11 +248,9 @@ mv ../*.buildinfo "$SCRIPT_DIR/$WORK_DIR/" 2>/dev/null || true
 mv ../*.changes "$SCRIPT_DIR/$WORK_DIR/" 2>/dev/null || true
 
 # Build meta packages (linux-image-sky1, linux-headers-sky1, linux-sky1)
-# Only for stable variant (not rc/next/dev)
-if [ "$VARIANT" = "sky1" ]; then
-    echo ""
-    "$SCRIPT_DIR/scripts/build-meta.sh" "$VERSION" "$REVISION"
-fi
+# For all variants: sky1 -> linux-image-sky1, sky1-rc -> linux-image-sky1-rc, etc.
+echo ""
+"$SCRIPT_DIR/scripts/build-meta.sh" "$VERSION" "$REVISION" "$VARIANT"
 
 # List results
 echo ""
