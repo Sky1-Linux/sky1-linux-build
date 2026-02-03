@@ -1,11 +1,15 @@
 #!/bin/bash
 # Export patches from mainline-linux working tree to linux-sky1 repo
+#
+# Usage: ./export-patches.sh [mainline-path]
+#
+# Detects the current branch to choose the output directory:
+#   main/latest → patches/     rc → patches-rc/     next → patches-next/
 set -e
 
 MAINLINE="${1:-$HOME/mainline-linux}"
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 LINUX_SKY1="${LINUX_SKY1:-$(dirname "$SCRIPT_DIR")/linux-sky1}"
-OUTPUT="$LINUX_SKY1/patches"
 
 echo "=== Exporting patches from $MAINLINE ==="
 
@@ -20,6 +24,21 @@ if [ ! -d "$LINUX_SKY1" ]; then
 fi
 
 cd "$MAINLINE"
+
+# Determine output directory from current branch
+BRANCH=$(git branch --show-current)
+case "$BRANCH" in
+    main)        OUTPUT="$LINUX_SKY1/patches" ;;
+    latest)      OUTPUT="$LINUX_SKY1/patches-latest" ;;
+    rc)          OUTPUT="$LINUX_SKY1/patches-rc" ;;
+    next)        OUTPUT="$LINUX_SKY1/patches-next" ;;
+    *)
+        echo "Error: Unknown branch '$BRANCH'. Expected main, latest, rc, or next."
+        exit 1
+        ;;
+esac
+
+echo "Branch: $BRANCH"
 
 # Get the upstream tag to diff against
 UPSTREAM_TAG=$(git describe --abbrev=0 --tags HEAD 2>/dev/null || echo "")
