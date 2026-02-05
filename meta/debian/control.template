@@ -7,7 +7,7 @@ Standards-Version: 4.6.0
 
 Package: linux-image-sky1__SUFFIX__
 Architecture: arm64
-Depends: linux-image-__VERSION__-sky1__SUFFIX__ (= __REVISION__)
+Depends: linux-image-__VERSION__-sky1__SUFFIX__.r__REVISION__ (= __REVISION__)
 Description: Sky1 Linux kernel__SUFFIX_DESC__
  Meta package that depends on the latest Sky1 Linux kernel image.
  .
@@ -16,7 +16,7 @@ Description: Sky1 Linux kernel__SUFFIX_DESC__
 
 Package: linux-headers-sky1__SUFFIX__
 Architecture: arm64
-Depends: linux-headers-__VERSION__-sky1__SUFFIX__ (= __REVISION__)
+Depends: linux-headers-__VERSION__-sky1__SUFFIX__.r__REVISION__ (= __REVISION__)
 Description: Sky1 Linux kernel headers__SUFFIX_DESC__
  Meta package that depends on the latest Sky1 Linux kernel headers.
  .

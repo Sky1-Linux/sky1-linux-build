@@ -86,14 +86,13 @@ case "$COMPONENT" in
 esac
 
 # Find kernel packages matching this variant (exclude linux-libc-dev - use Debian's)
-# Patterns:
-#   linux-*-${VARIANT}_*.deb       — versioned packages (linux-image-6.19.0-rc7-sky1-rc_1_...)
-#   linux-*-${VARIANT}-dbg_*.deb   — debug packages
-#   linux-${VARIANT}_*.deb         — top-level meta package (linux-sky1_6.18.7_...)
-#   linux-image-${VARIANT}_*.deb   — image meta package
+# Patterns use [._]* after VARIANT to match both old-style (direct _) and
+# new-style (.rN_) package names from revision-aware LOCALVERSION.
+#   linux-*-${VARIANT}[._]*       — versioned packages (linux-image-6.19.0-rc8-sky1-rc.r6_...)
+#   linux-${VARIANT}_*.deb        — top-level meta package (linux-sky1_6.18.7_...)
+#   linux-image-${VARIANT}_*.deb  — image meta package
 #   linux-headers-${VARIANT}_*.deb — headers meta package
-DEBS=$(ls "$SCRIPT_DIR/$WORK_DIR"/linux-*-"${VARIANT}"_*.deb \
-          "$SCRIPT_DIR/$WORK_DIR"/linux-*-"${VARIANT}"-dbg_*.deb \
+DEBS=$(ls "$SCRIPT_DIR/$WORK_DIR"/linux-*-"${VARIANT}"[._]*arm64.deb \
           "$SCRIPT_DIR/$WORK_DIR"/linux-"${VARIANT}"_*.deb \
           "$SCRIPT_DIR/$WORK_DIR"/linux-image-"${VARIANT}"_*.deb \
           "$SCRIPT_DIR/$WORK_DIR"/linux-headers-"${VARIANT}"_*.deb \
@@ -147,6 +146,31 @@ if [ -z "$VERSION" ]; then
         echo ""
         echo "Continuing in 5 seconds (Ctrl-C to abort)..."
         sleep 5
+    fi
+fi
+
+# Check for version downgrade — warn if uploading a lower revision than what's in the repo
+REPO_VER=$(reprepro -C "$COMPONENT" list "$DIST" 2>/dev/null \
+    | grep "linux-image-sky1" | grep -v dbg | head -1 \
+    | awk '{print $NF}' || echo "")
+if [ -n "$REPO_VER" ]; then
+    # Extract revision from repo version (e.g., "6.19.0-rc8-6" -> "6")
+    REPO_REV=$(echo "$REPO_VER" | grep -oE '[0-9]+$')
+    # Extract highest revision from debs being uploaded
+    UPLOAD_REV=0
+    for deb in $DEBS; do
+        fname=$(basename "$deb")
+        REV=$(echo "$fname" | sed -n 's/.*_\([0-9]\+\)_arm64\.deb$/\1/p')
+        if [ -n "$REV" ] && [ "$REV" -gt "$UPLOAD_REV" ] 2>/dev/null; then
+            UPLOAD_REV="$REV"
+        fi
+    done
+    if [ -n "$REPO_REV" ] && [ "$UPLOAD_REV" -lt "$REPO_REV" ] 2>/dev/null; then
+        echo ""
+        echo "ERROR: Uploading revision $UPLOAD_REV but repo has revision $REPO_REV"
+        echo "This would be a downgrade. Use a higher revision number."
+        echo "  Current repo: $REPO_VER"
+        exit 1
     fi
 fi
 

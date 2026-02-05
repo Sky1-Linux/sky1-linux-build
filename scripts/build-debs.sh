@@ -3,13 +3,48 @@
 set -e
 
 VERSION="${1:-6.18.2}"
-REVISION="${2:-1}"
+REVISION="${2:-auto}"
 VARIANT="${3:-sky1}"           # sky1, sky1-rc, sky1-next, or sky1-dev
 WORK_DIR="${4:-build}"
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 # linux-sky1 repo location (sibling directory)
 LINUX_SKY1="${LINUX_SKY1:-$(dirname "$SCRIPT_DIR")/linux-sky1}"
+
+# APT repo location (sibling directory) — used for auto-revision detection
+APT_REPO="${APT_REPO:-$(dirname "$SCRIPT_DIR")/apt-repo}"
+
+# Auto-detect next revision by checking APT repo and build directory
+if [ "$REVISION" = "auto" ]; then
+    MAX_REV=0
+
+    # Check APT repo for current published revision
+    case "$VARIANT" in
+        sky1) APT_COMPONENT="main" ;;
+        *)    APT_COMPONENT="${VARIANT#sky1-}" ;;
+    esac
+    if [ -d "$APT_REPO" ] && command -v reprepro >/dev/null 2>&1; then
+        APT_VER=$(cd "$APT_REPO" && reprepro -C "$APT_COMPONENT" list sid 2>/dev/null \
+            | grep "linux-image-sky1" | grep -v dbg | head -1 \
+            | grep -oE '[0-9]+$' || echo "0")
+        if [ "$APT_VER" -gt "$MAX_REV" ] 2>/dev/null; then
+            MAX_REV="$APT_VER"
+        fi
+    fi
+
+    # Check build directory for existing debs
+    for deb in "$SCRIPT_DIR/$WORK_DIR"/linux-image-*"${VARIANT}"*_*_arm64.deb; do
+        [ -f "$deb" ] || continue
+        fname=$(basename "$deb")
+        REV=$(echo "$fname" | sed -n 's/.*_\([0-9]\+\)_arm64\.deb$/\1/p')
+        if [ -n "$REV" ] && [ "$REV" -gt "$MAX_REV" ] 2>/dev/null; then
+            MAX_REV="$REV"
+        fi
+    done
+
+    REVISION=$((MAX_REV + 1))
+    echo "Auto-detected revision: $REVISION (previous max: $MAX_REV)"
+fi
 
 # Determine patch directory based on variant
 # sky1-rc uses patches-rc/, sky1-next uses patches-next/, others use patches/
@@ -95,9 +130,9 @@ rm -f localversion*
 make ARCH=arm64 olddefconfig
 
 # Set environment for package naming
-# Package name includes kernel version (e.g., linux-image-6.18.2-sky1)
-# Version is just the revision number to avoid redundancy in filenames
-export LOCALVERSION="-${VARIANT}"
+# Package name includes kernel version (e.g., linux-image-6.18.2-sky1.r1)
+# LOCALVERSION includes variant and revision so uname -r shows the full build identity
+export LOCALVERSION="-${VARIANT}.r${REVISION}"
 export KDEB_PKGVERSION="${REVISION}"
 export KDEB_SOURCENAME="linux-${VARIANT}"
 export DEBEMAIL="entrpi@proton.me"
@@ -226,7 +261,7 @@ fix_image_package() {
 # Determine kernel version string from actual build output
 # The kernel uses VERSION.PATCHLEVEL.SUBLEVEL from its Makefile (e.g., 6.19.0-rc7),
 # which may differ from the user-supplied version (e.g., 6.19-rc7 omits .0 sublevel).
-KERN_RELEASE=$(make -s ARCH=arm64 kernelrelease LOCALVERSION="-${VARIANT}")
+KERN_RELEASE=$(make -s ARCH=arm64 kernelrelease LOCALVERSION="${LOCALVERSION}")
 KERNEL_VER="$KERN_RELEASE"
 
 # Extract major.minor for stable package name
@@ -268,3 +303,20 @@ for deb in "$SCRIPT_DIR/$WORK_DIR"/*.deb; do
         dpkg-deb -I "$deb" | grep -E "Package:|Version:|Provides:|Installed-Size:" | sed 's/^/  /'
     fi
 done
+
+# Clean old debs for this variant after successful build
+# Only remove debs with a LOWER revision to avoid stale artifacts
+echo ""
+echo "Cleaning old revision debs..."
+CLEANED=0
+for old_deb in "$SCRIPT_DIR/$WORK_DIR"/linux-*"${VARIANT}"*_*_arm64.deb; do
+    [ -f "$old_deb" ] || continue
+    old_fname=$(basename "$old_deb")
+    OLD_REV=$(echo "$old_fname" | sed -n 's/.*_\([0-9]\+\)_arm64\.deb$/\1/p')
+    if [ -n "$OLD_REV" ] && [ "$OLD_REV" -lt "$REVISION" ] 2>/dev/null; then
+        echo "  Removing: $old_fname"
+        rm -f "$old_deb"
+        CLEANED=$((CLEANED + 1))
+    fi
+done
+echo "  Cleaned $CLEANED old deb(s)"

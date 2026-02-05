@@ -69,7 +69,7 @@ mv ../*.deb "$BUILD_DIR/"
 
 echo ""
 echo "=== Meta Packages Built ==="
-ls -lh "$BUILD_DIR"/linux-*-sky1${SUFFIX}_*.deb 2>/dev/null | grep -v "image-${VERSION}" | grep -v "headers-${VERSION}" || true
+ls -lh "$BUILD_DIR"/linux-*-sky1${SUFFIX}[._]*deb 2>/dev/null | grep -v "image-${VERSION}" | grep -v "headers-${VERSION}" || true
 ls -lh "$BUILD_DIR"/linux-sky1${SUFFIX}_*.deb 2>/dev/null || true
 
 echo ""
