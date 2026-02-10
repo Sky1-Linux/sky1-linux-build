@@ -23,9 +23,10 @@ cd "$WORK_DIR"
 
 # Download kernel tarball if not present
 if [ ! -f "linux-${VERSION}.tar.xz" ]; then
+    MAJOR_VER="${VERSION%%.*}"
     echo "Downloading linux-${VERSION}.tar.xz..."
     wget -q --show-progress \
-        "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${VERSION}.tar.xz"
+        "https://cdn.kernel.org/pub/linux/kernel/v${MAJOR_VER}.x/linux-${VERSION}.tar.xz"
 fi
 
 # Extract fresh source

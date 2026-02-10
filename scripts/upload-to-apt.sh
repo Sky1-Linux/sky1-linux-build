@@ -134,7 +134,7 @@ fi
 if [ -z "$VERSION" ]; then
     VERSIONS_FOUND=$(for deb in $DEBS; do
         dpkg-deb -f "$deb" Package
-    done | grep -oE '[0-9]+\.[0-9]+\.[0-9]+-?(rc[0-9]+)?' | sort -Vu)
+    done | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?-?(rc[0-9]+)?' | sort -Vu)
     NUM_VERSIONS=$(echo "$VERSIONS_FOUND" | wc -l)
     if [ "$NUM_VERSIONS" -gt 1 ]; then
         echo ""

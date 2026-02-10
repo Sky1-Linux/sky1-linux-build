@@ -50,7 +50,7 @@ else
     VERSION="$(git describe --always "$REF" 2>/dev/null | sed 's/^v//')"
     if [ -z "$VERSION" ]; then
         echo "Error: Could not determine version from ref: $REF"
-        echo "Supported formats: v6.19-rc7, origin/master, v6.18.7"
+        echo "Supported formats: v7.0-rc1, origin/master, v6.18.9"
         exit 1
     fi
 fi
