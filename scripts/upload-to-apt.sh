@@ -149,28 +149,30 @@ if [ -z "$VERSION" ]; then
     fi
 fi
 
-# Check for version downgrade — warn if uploading a lower revision than what's in the repo
+# Check for version downgrade — warn if uploading a lower version than what's in the repo
+# Uses dpkg --compare-versions for proper Debian version ordering
 REPO_VER=$(reprepro -C "$COMPONENT" list "$DIST" 2>/dev/null \
-    | grep "linux-image-sky1" | grep -v dbg | head -1 \
+    | grep "linux-image-${VARIANT}_" | head -1 \
     | awk '{print $NF}' || echo "")
 if [ -n "$REPO_VER" ]; then
-    # Extract revision from repo version (e.g., "6.19.0-rc8-6" -> "6")
-    REPO_REV=$(echo "$REPO_VER" | grep -oE '[0-9]+$')
-    # Extract highest revision from debs being uploaded
-    UPLOAD_REV=0
+    # Get version of the meta package we're about to upload
+    UPLOAD_VER=""
     for deb in $DEBS; do
-        fname=$(basename "$deb")
-        REV=$(echo "$fname" | sed -n 's/.*_\([0-9]\+\)_arm64\.deb$/\1/p')
-        if [ -n "$REV" ] && [ "$REV" -gt "$UPLOAD_REV" ] 2>/dev/null; then
-            UPLOAD_REV="$REV"
+        pkg=$(dpkg-deb -f "$deb" Package)
+        if [ "$pkg" = "linux-image-${VARIANT}" ]; then
+            UPLOAD_VER=$(dpkg-deb -f "$deb" Version)
+            break
         fi
     done
-    if [ -n "$REPO_REV" ] && [ "$UPLOAD_REV" -lt "$REPO_REV" ] 2>/dev/null; then
+    if [ -n "$UPLOAD_VER" ] && dpkg --compare-versions "$UPLOAD_VER" lt "$REPO_VER"; then
         echo ""
-        echo "ERROR: Uploading revision $UPLOAD_REV but repo has revision $REPO_REV"
-        echo "This would be a downgrade. Use a higher revision number."
-        echo "  Current repo: $REPO_VER"
+        echo "ERROR: Uploading version $UPLOAD_VER but repo has $REPO_VER"
+        echo "This would be a downgrade."
         exit 1
+    fi
+    if [ -n "$UPLOAD_VER" ]; then
+        echo ""
+        echo "Upgrading: $REPO_VER -> $UPLOAD_VER"
     fi
 fi
 
