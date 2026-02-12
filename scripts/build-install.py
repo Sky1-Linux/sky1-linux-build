@@ -32,7 +32,10 @@ def run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
 
 
 def main() -> None:
-    os.chdir(Path(__file__).resolve().parent.parent)
+    # Use the symlink path (not resolved target) so this works when
+    # symlinked into ~/mainline-linux/scripts/
+    script_dir = Path(os.path.abspath(__file__)).parent
+    os.chdir(script_dir.parent)
 
     import argparse
     parser = argparse.ArgumentParser(description=__doc__,

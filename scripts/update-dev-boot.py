@@ -194,7 +194,10 @@ def content_hash(content: str) -> str:
 
 
 def main() -> None:
-    os.chdir(Path(__file__).resolve().parent.parent)
+    # Use the symlink path (not resolved target) so this works when
+    # symlinked into ~/mainline-linux/scripts/
+    script_dir = Path(os.path.abspath(__file__)).parent
+    os.chdir(script_dir.parent)
 
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)

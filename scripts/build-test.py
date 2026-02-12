@@ -129,7 +129,10 @@ def main() -> None:
                         help="Iterations for randconfig (default: 1)")
     args = parser.parse_args()
 
-    os.chdir(Path(__file__).resolve().parent.parent)
+    # Use the symlink path (not resolved target) so this works when
+    # symlinked into ~/mainline-linux/scripts/
+    script_dir = Path(os.path.abspath(__file__)).parent
+    os.chdir(script_dir.parent)
 
     # Save current config
     config_path = Path(".config")
